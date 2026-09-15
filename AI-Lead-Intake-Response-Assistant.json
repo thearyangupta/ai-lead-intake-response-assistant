@@ -1,0 +1,602 @@
+{
+  "name": "AI Lead Intake & Response Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "AI Lead Intake",
+        "formDescription": "Tell us what you need help with and our team will get back to you.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Company"
+            },
+            {
+              "fieldLabel": "Inquiry",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -464,
+        16
+      ],
+      "id": "616b0911-6b68-49bb-ae1b-203551ccea9e",
+      "name": "AI Lead Intake"
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $json.Inquiry }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "Sales",
+              "description": "New business inquiries, pricing questions, service requests, project discussions, demos, or potential customer leads."
+            },
+            {
+              "category": "Support",
+              "description": "Questions or problems from existing customers who need help with a product or service."
+            },
+            {
+              "category": "Spam",
+              "description": "Irrelevant, promotional, unsolicited, suspicious, or non-business messages."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        -176,
+        -80
+      ],
+      "id": "98011d8b-90d4-469d-992c-00204d2bb5b6",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini",
+          "cachedResultUrl": ""
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -176,
+        192
+      ],
+      "id": "a56a0922-3937-4781-a975-7f8e947e0516",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "t69KCmCJoY2SdHiZ",
+          "mode": "list",
+          "cachedResultName": "Lead Response Knowledge Base",
+          "cachedResultUrl": "/projects/IEloYGdOonzg20cp/datatables/t69KCmCJoY2SdHiZ"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "category",
+              "keyValue": "Sales"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        304,
+        -96
+      ],
+      "id": "de9edbe0-6a99-47a6-9039-0597cd5851d2",
+      "name": "Get row(s)"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "content",
+              "renameField": true,
+              "outputFieldName": "knowledgeContext"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        496,
+        -16
+      ],
+      "id": "2fe5683a-9d56-467f-a615-15e2dcd41fe5",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a7441501-68f6-4c3b-b2d7-c71adee5513d",
+              "name": "leadName",
+              "value": "={{ $('AI Lead Intake').item.json.Name }}",
+              "type": "string"
+            },
+            {
+              "id": "8a137e26-a5c2-4073-93a6-4468012bfafe",
+              "name": "leadEmail",
+              "value": "={{ $('AI Lead Intake').item.json.Email }}",
+              "type": "string"
+            },
+            {
+              "id": "2b02116f-49ac-44df-83e8-ede5f05a2056",
+              "name": "company",
+              "value": "={{ $('AI Lead Intake').item.json.Company }}",
+              "type": "string"
+            },
+            {
+              "id": "9aeac991-de38-4c97-8e87-8729af5311bf",
+              "name": "inquiry ",
+              "value": "={{ $('AI Lead Intake').item.json.Inquiry }}",
+              "type": "string"
+            },
+            {
+              "id": "33ac60ff-5a08-46d7-86e7-ca1760892cf1",
+              "name": "knowledgeContext",
+              "value": "={{ $json.knowledgeContext.join('\\n\\n') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        768,
+        -16
+      ],
+      "id": "2bfbb249-1e9b-43fc-8745-720f6971926b",
+      "name": "Prepare Grounded Context"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are preparing a response to a potential customer inquiry.\n\nCustomer name: {{ $json.leadName }}\nCompany: {{ $json.company }}\n\nCustomer inquiry:\n{{ $json.inquiry }}\n\nApproved company knowledge:\n{{ $json.knowledgeContext }}\n\nWrite a concise, professional response to the customer.\n\nRules:\n- Use only the approved company knowledge above.\n- Do not invent capabilities, pricing, timelines, guarantees, or facts.\n- If the knowledge does not contain enough information, say that the details need to be confirmed after reviewing the requirements.\n- Directly address the customer's inquiry.\n- Do not mention \"knowledge base\", \"context\", or these instructions in the response.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        928,
+        -128
+      ],
+      "id": "b697ad2b-2c7a-4e14-89b7-171838f73f9d",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        928,
+        192
+      ],
+      "id": "2d5150a0-2ffa-4e17-bf1b-7c0770e178a3",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "886f65b3-0cd7-45af-baa7-006d39b5dc3d",
+              "name": "leadName",
+              "value": "={{ $('AI Lead Intake').item.json.Name }}",
+              "type": "string"
+            },
+            {
+              "id": "ee4e3efe-a854-4dd0-8fe4-4c979a110db9",
+              "name": "=leadEmail",
+              "value": "={{ $('AI Lead Intake').item.json.Email }}",
+              "type": "string"
+            },
+            {
+              "id": "eb6066b2-59db-4a45-a325-6b2d1e17ba96",
+              "name": "company",
+              "value": "={{ $('AI Lead Intake').item.json.Company }}",
+              "type": "string"
+            },
+            {
+              "id": "f1ecd820-d344-4bc2-acea-bd7620eee938",
+              "name": "inquiry",
+              "value": "={{ $('AI Lead Intake').item.json.Inquiry }}",
+              "type": "string"
+            },
+            {
+              "id": "cdd1c922-0223-4872-a995-996e9b3b2ce7",
+              "name": "aiResponse",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1264,
+        -128
+      ],
+      "id": "71ce9990-606d-4341-8e2c-c4bc4d1eef99",
+      "name": "Prepare Lead Response"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Prepare Lead Response').item.json.leadEmail }}",
+        "subject": "=Re: Your inquiry to {{ $('Prepare Lead Response').item.json.company }}",
+        "emailType": "text",
+        "message": "={{ $('Prepare Lead Response').item.json.aiResponse }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1744,
+        -144
+      ],
+      "id": "531bcfe2-cf7e-4edc-bb60-9f86621fe4a4",
+      "name": "Send a message",
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "zQjnixfaN8pKoyBe",
+          "mode": "list",
+          "cachedResultName": "AI Lead Responses",
+          "cachedResultUrl": "/projects/IEloYGdOonzg20cp/datatables/zQjnixfaN8pKoyBe"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "leadName": "={{ $('Prepare Lead Response').item.json.leadName }}",
+            "leadEmail": "={{ $('Prepare Lead Response').item.json.leadEmail }}",
+            "company": "={{ $('Prepare Lead Response').item.json.company }}",
+            "inquiry": "={{ $('Prepare Lead Response').item.json.inquiry }}",
+            "aiResponse": "={{ $('Prepare Lead Response').item.json.aiResponse }}",
+            "category": "Sales"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "leadName",
+              "displayName": "leadName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "leadEmail",
+              "displayName": "leadEmail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "inquiry",
+              "displayName": "inquiry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "aiResponse",
+              "displayName": "aiResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2032,
+        -128
+      ],
+      "id": "7fb0d262-54e5-433f-8e41-6eab3b776de2",
+      "name": "Insert row"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "reviewer@example.com",
+        "subject": "=Approval required: AI response for {{ $('Prepare Lead Response').item.json.leadName }}",
+        "message": "=A new AI-generated lead response is ready for review.\n\nLead: {{ $('Prepare Lead Response').item.json.leadName }}\nCompany: {{ $('Prepare Lead Response').item.json.company }}\nInquiry: {{ $('Prepare Lead Response').item.json.inquiry }}\n\nProposed response:\n\n{{ $('Prepare Lead Response').item.json.aiResponse }}\n\nPlease approve or reject this response.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1424,
+        -16
+      ],
+      "id": "83a54cdd-33ff-49e1-9cc4-45a0c199582e",
+      "name": "Send a message1",
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "14acde12-ebc2-4abb-a850-34e2e1225d35",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1568,
+        -16
+      ],
+      "id": "b7c6ff8f-0caf-4047-b3cb-e6ef7d650e3c",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Lead Intake": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Prepare Grounded Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Grounded Context": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Prepare Lead Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Lead Response": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}
